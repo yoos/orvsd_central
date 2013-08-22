@@ -13,6 +13,7 @@ from sqlalchemy.sql.expression import desc
 from models import (District, School, Site, SiteDetail,
                     Course, CourseDetail, User)
 from bs4 import BeautifulSoup as Soup
+import urllib2
 import celery
 import os
 import json
@@ -220,6 +221,7 @@ def install_course():
         # Query all moodle sites
         sites = Site.query.filter_by(sitetype='moodle').all()
         moodle_22_sites = []
+        moodle_22_sites.append(Site.query.filter_by(id="503").first())
 
         # For all sites query the SiteDetail to see if it's a moodle 2.2 site
         for site in sites:
@@ -266,6 +268,7 @@ def install_course():
         # An array of unicode strings will be passed, they need to be integers
         # for the query
         selected_courses = [int(cid) for cid in request.form.getlist('course')]
+        print selected_courses
 
         site_url = Site.query.filter_by(id=request.form.get('site')).first().baseurl
 
@@ -279,7 +282,7 @@ def install_course():
         # The CourseDetail objects needed to generate the url
         courses = []
         for cid in selected_courses:
-            courses.append(CourseDetail.query.filter_by(id=cid)
+            courses.append(CourseDetail.query.filter_by(course_id=cid)
                                              .order_by(CourseDetail.updated.desc())
                                              .first())
 
@@ -296,7 +299,7 @@ def install_course():
             resp = install_course_to_site.delay(course, site).get()
 
             output += "%s\n\n%s\n\n\n" % \
-                      (course.course.shortname, resp)
+                      (course.course.name, resp)
 
         return render_template('install_course_output.html',
                                output=output,
@@ -338,14 +341,16 @@ def get_course_list():
         courses = selected_courses
     else:
         courses = [course for course in selected_courses if course.course.source == dir]
+
     # This means the folder selected was not the source folder or None.
     if not courses:
         courses = db.session.query(CourseDetail).filter(
                                    CourseDetail.filename.like("%"+dir+"%")).all()
 
+    courses = sorted(courses, key=lambda x: x.course.name)
     serialized_courses = []
     for course in courses:
-        serialized_courses.append(({'id' : course.id, 'name' : course.course.name}))
+        serialized_courses.append(({'id' : course.course_id, 'name' : course.course.name}))
 
     return jsonify(courses=serialized_courses)
 
@@ -469,11 +474,15 @@ def update(category):
     obj = get_obj_by_category(category)
 
     identifier = get_obj_identifier(category)
+    if 'details' in category:
+        category = category.split("details")[0] + " " + "Details"
+    category = category[0].upper() + category[1:]
     if obj:
-        objects = obj.query.all()
+        objects = obj.query.order_by(identifier).all()
         if objects:
             return render_template("update.html", objects=objects,
-                                    identifier=identifier)
+                                    identifier=identifier, user=current_user,
+                                    category=category)
 
     abort(404)
 
@@ -611,14 +620,14 @@ def get_obj_by_category(category):
     # Checking for case insensitive categories
     categories = {'districts': District, 'schools': School,
                   'sites': Site, 'courses': Course, 'users': User,
-                  'coursedetails': CourseDetail}
+                  'sitedetails':SiteDetail, 'coursedetails': CourseDetail}
 
     return categories.get(category.lower())
 
 def get_obj_identifier(category):
     categories = {'districts': 'name', 'schools': 'name',
                   'sites': 'name', 'courses': 'name', 'users': 'name',
-                  'coursedetails': 'filename'}
+                  'sitedetails': 'site_id', 'coursedetails': 'filename'}
 
     return categories.get(category.lower())
 
@@ -717,7 +726,7 @@ def get_site_by_url(baseurl):
 1. Comment more
 2. Separate into seperate functions
 '''
-@app.route("/courses/update", methods=['GET', 'POST'])
+@app.route("/courses/list/update", methods=['GET', 'POST'])
 def update_courselist():
     """
         Updates the database to contain the most recent course
@@ -758,7 +767,7 @@ def update_courselist():
 
         if num_courses > 0:
             flash(str(num_courses) + ' new courses added successfully!')
-    return render_template('update_courses.html')
+    return render_template('update_courses.html', user=current_user)
 
 # /base_path/source/path is the format of the parsed directories.
 def get_path_and_source(base_path, file_path):
