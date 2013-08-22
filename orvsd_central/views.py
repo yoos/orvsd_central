@@ -12,22 +12,16 @@ from sqlalchemy import func, and_
 from sqlalchemy.sql.expression import desc
 from models import (District, School, Site, SiteDetail,
                     Course, CourseDetail, User)
-<<<<<<< HEAD
-=======
-import celery
 from bs4 import BeautifulSoup as Soup
+import celery
 import os
->>>>>>> feature/14553
 import json
 import re
 import subprocess
 import StringIO
 import requests
-<<<<<<< HEAD
-=======
 import zipfile
 import datetime
->>>>>>> feature/14553
 
 
 """
@@ -219,41 +213,6 @@ def install_course():
         form = InstallCourse()
 
         # Query all moodle 2.2 courses
-<<<<<<< HEAD
-        courses = CourseDetail.query.filter_by(moodle_version='2.2').all()
-
-        # Query all moodle sites
-        sites = Site.query.filter_by(sitetype='moodle').all()
-        moodle_22_sites = []
-
-        # For all sites query the SiteDetail to see if it's a moodle 2.2 site
-        for site in sites:
-            details = db.session.query(SiteDetail) \
-                                .filter(and_(SiteDetail.site_id == site.id,
-                                             SiteDetail.siterelease
-                                                       .like('2.2%'))) \
-                                .order_by(SiteDetail.timemodified.desc()).first()
-
-            if details:
-                moodle_22_sites.append(site)
-
-        # Generate the list of choices for the template
-        courses_info = []
-        sites_info = []
-
-        # Create the courses list
-        for course in courses:
-            courses_info.append((course.course_id,
-                                 "%s - v%s" %
-                                 (course.course.name, course.version)))
-
-        # Create the sites list
-        for site in moodle_22_sites:
-            sites_info.append((site.id, site.name))
-
-        form.course.choices = sorted(courses_info, key=lambda x: x[1])
-        form.site.choices = sorted(sites_info, key=lambda x: x[1])
-=======
         courses = db.session.query(CourseDetail).filter(
                                    CourseDetail.moodle_version.like("2.5%")).all()
 
@@ -299,7 +258,6 @@ def install_course():
         form.course.choices = sorted(courses_info, key=lambda x: x[1])
         form.site.choices = sorted(sites_info, key=lambda x: x[1])
         form.filter.choices = [(folder, folder) for folder in get_course_folders()]
->>>>>>> feature/14553
 
         return render_template('install_course.html',
                                form=form, user=current_user)
@@ -319,17 +277,11 @@ def install_course():
         site = str(site.encode('utf-8'))
 
         # The CourseDetail objects needed to generate the url
-<<<<<<< HEAD
-        courses = CourseDetail.query.filter(CourseDetail
-                                            .course_id.in_(selected_courses))\
-                                    .all()
-=======
         courses = []
         for cid in selected_courses:
             courses.append(CourseDetail.query.filter_by(id=cid)
                                              .order_by(CourseDetail.updated.desc())
                                              .first())
->>>>>>> feature/14553
 
         # Course installation results
         output = ''
@@ -339,37 +291,43 @@ def install_course():
         #
         # Currently this will break as our db is not setup correctly yet
         for course in courses:
-<<<<<<< HEAD
-            # To get the file path we need the text input, the lowercase of
-            # source, and the filename
-            fp = app.config['INSTALL_COURSE_FILE_PATH']
-            fp += course.course.source.lower() + '/'
-
-            data = {'filepath': fp,
-                    'file': course.filename,
-                    'courseid': course.course_id,
-                    'coursename': course.course.name,
-                    'shortname': course.course.shortname,
-                    'category': '1',
-                    'firstname': 'orvsd',
-                    'lastname': 'central',
-                    'city': 'none',
-                    'username': 'admin',
-                    'email': 'a@a.aa',
-                    'pass': 'testo123'}
-
-            resp = requests.post(site, data=data)
-
-            output += "%s\n\n%s\n\n\n" % (course.course.shortname, resp.text)
-=======
             #Courses are detached from session for being inactive for too long.
             course.course.name
-            output += install_course_to_site.delay(course, site).get()
->>>>>>> feature/14553
+            resp = install_course_to_site.delay(course, site).get()
+
+            output += "%s\n\n%s\n\n\n" % \
+                      (course.course.shortname, resp)
 
         return render_template('install_course_output.html',
                                output=output,
                                user=current_user)
+
+@celery.task(name='tasks.install_course')
+def install_course_to_site(course, site):
+    # To get the file path we need the text input, the lowercase of
+    # source, and the filename
+    fp = app.config['INSTALL_COURSE_FILE_PATH']
+    fp += 'flvs/'
+
+    data = {'filepath': fp,
+            'file': course.filename,
+            'courseid': course.course_id,
+            'coursename': course.course.name,
+            'shortname': course.course.shortname,
+            'category': '1',
+            'firstname': 'orvsd',
+            'lastname': 'central',
+            'city': 'none',
+            'username': 'admin',
+            'email': 'a@a.aa',
+            'pass': 'adminpass'}
+
+    resp = requests.post(site, data=data)
+
+    # Unfortunately the response object to turned into unicode
+    # when returned by the celery job, so we must send the
+    # data we need, instead of the whole object.
+    return resp.text
 
 @app.route("/courses/filter", methods=["POST"])
 def get_course_list():
@@ -400,31 +358,6 @@ def get_course_folders():
             if folder not in folders:
                 folders.append(folder)
     return folders
-
-@celery.task(name='tasks.install_course')
-def install_course_to_site(course, site):
-    # To get the file path we need the text input, the lowercase of
-    # source, and the filename
-    fp = app.config['INSTALL_COURSE_FILE_PATH']
-    fp += 'flvs/'
-
-    data = {'filepath': fp,
-            'file': course.filename,
-            'courseid': course.course_id,
-            'coursename': course.course.name,
-            'shortname': course.course.shortname,
-            'category': '1',
-            'firstname': 'orvsd',
-            'lastname': 'central',
-            'city': 'none',
-            'username': 'admin',
-            'email': 'a@a.aa',
-            'pass': 'adminpass'}
-
-    resp = requests.post(site, data=data)
-
-    return "%s\n\n%s\n\n\n" % (course.course.shortname, resp.text)
-
 
 """
 VIEW
