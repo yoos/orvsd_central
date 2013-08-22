@@ -585,6 +585,10 @@ def district_details(schools):
             'teachers': teacher_count,
             'users': user_count}
 
+"""
+API
+"""
+
 @app.route("/1/site/<site_id>/courses")
 def get_courses_by_site(site_id):
     #SiteDetails hold the course information we are looking for
@@ -611,6 +615,21 @@ def get_task_status(celery_id):
                            .params(celery_id=celery_id).first()
     return jsonify(status=status)
 
+@app.route("/1/sites/<baseurl>")
+def get_site_by_url(baseurl):
+    site = Site.query.filter_by(baseurl=baseurl).first()
+    if site:
+        site_details = SiteDetail.query.filter_by(site_id=site.id) \
+                                       .order_by(SiteDetail
+                                                 .timemodified
+                                                 .desc()) \
+                                       .first()
+
+        site_info = dict(site.serialize().items() + \
+                    site_details.serialize().items())
+
+        return jsonify(content=site_info)
+    return jsonify(content={'error': 'Site not found'})
 
 #TODO:
 '''
