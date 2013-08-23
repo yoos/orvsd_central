@@ -12,6 +12,7 @@ from sqlalchemy import func, and_
 from sqlalchemy.sql.expression import desc
 from models import (District, School, Site, SiteDetail,
                     Course, CourseDetail, User)
+from celery.utils.encoding import safe_repr, safe_str
 from tasks import celery
 import json
 import re
@@ -543,8 +544,9 @@ def get_task_status(celery_id):
 # TODO: Needs testing
 @app.route('/celery/id/all')
 def get_all_ids():
-    status = db.session.query("status") \
-                       .from_statement("SELECT id"
-                           "FROM celery_taskmeta") \
+    statuses = db.session.query("id", "task_id", "status", "result", "date_done", "traceback") \
+                       .from_statement("SELECT * "
+                           "FROM celery_taskmeta where id>355") \
                            .all()
-    return jsonify(status=status)
+
+    return jsonify(status=statuses)
