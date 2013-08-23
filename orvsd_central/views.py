@@ -544,9 +544,10 @@ def get_task_status(celery_id):
 # TODO: Needs testing
 @app.route('/celery/id/all')
 def get_all_ids():
-    statuses = db.session.query("id", "task_id", "status", "result", "date_done", "traceback") \
+    # TODO: "result" is another column, but SQLAlchemy complains of some encoding error.
+    statuses = db.session.query("id", "task_id", "status", "date_done", "traceback") \
                        .from_statement("SELECT * "
-                           "FROM celery_taskmeta where id>355") \
+                           "FROM celery_taskmeta") \
                            .all()
 
     return jsonify(status=statuses)
