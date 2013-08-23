@@ -538,3 +538,13 @@ def get_task_status(celery_id):
                            "FROM celery_taskmeta WHERE id=:celery_id") \
                            .params(celery_id=celery_id).first()
     return jsonify(status=status)
+
+# Get all task IDs
+# TODO: Needs testing
+@app.route('/celery/id/all')
+def get_all_ids():
+    status = db.session.query("status") \
+                       .from_statement("SELECT id"
+                           "FROM celery_taskmeta") \
+                           .all()
+    return jsonify(status=status)
