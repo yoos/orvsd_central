@@ -856,3 +856,14 @@ def create_course_from_moodle_backup(base_path, source, file_path):
 
     #Get rid of moodle_backup.xml
     os.remove(project_folder+"moodle_backup.xml")
+
+# Get all task IDs
+# TODO: Needs testing
+@app.route('/celery/id/all')
+def get_all_ids():
+    status = db.session.query("status") \
+                       .from_statement("SELECT id"
+                           "FROM celery_taskmeta") \
+                           .all()
+    return jsonify(status=status)
+
