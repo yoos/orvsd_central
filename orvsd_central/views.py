@@ -296,7 +296,7 @@ def install_course():
         for course in courses:
             #Courses are detached from session for being inactive for too long.
             course.course.name
-            resp = install_course_to_site.delay(course, site).get()
+            resp = install_course_to_site.delay(course, site)
 
             output += "%s\n\n%s\n\n\n" % \
                       (course.course.name, resp)
@@ -335,7 +335,7 @@ def install_course_api():
     for course in courses:
         #Courses are detached from session for being inactive for too long.
         course.course.name
-        output += install_course_to_site.delay(course, site).get()
+        output += install_course_to_site.delay(course, site)
 
     return "The selected courses are now being installed!"
 
@@ -815,7 +815,7 @@ def create_course_from_moodle_backup(base_path, source, file_path):
     # Unzip the file to get the manifest (All course backups are zip files)
     zip = zipfile.ZipFile(base_path+source+file_path)
     xmlfile = file(zip.extract("moodle_backup.xml"), "r")
-    xml = Soup(xmlfile.read(), "xml")
+    xml = Soup(xmlfile.read(), "lxml")
     info = xml.moodle_backup.information
     old_course = Course.query.filter_by(
                     name=info.original_course_fullname.string) or \
