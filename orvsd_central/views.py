@@ -16,6 +16,8 @@ from bs4 import BeautifulSoup as Soup
 import urllib2
 import celery
 import os
+from celery.utils.encoding import safe_repr, safe_str
+from tasks import celery
 import json
 import re
 import subprocess
@@ -861,9 +863,9 @@ def create_course_from_moodle_backup(base_path, source, file_path):
 # TODO: Needs testing
 @app.route('/celery/id/all')
 def get_all_ids():
-    status = db.session.query("status") \
-                       .from_statement("SELECT id"
-                           "FROM celery_taskmeta") \
+    statuses = db.session.query("id", "task_id", "status", "result", "date_done", "traceback") \
+                       .from_statement("SELECT * "
+                           "FROM celery_taskmeta where id>355") \
                            .all()
-    return jsonify(status=status)
 
+    return jsonify(status=statuses)
