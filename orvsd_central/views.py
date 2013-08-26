@@ -12,7 +12,6 @@ from sqlalchemy import func, and_
 from sqlalchemy.sql.expression import desc
 from models import (District, School, Site, SiteDetail,
                     Course, CourseDetail, User)
-from tasks import celery
 import json
 import re
 import subprocess
