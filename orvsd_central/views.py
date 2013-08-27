@@ -13,6 +13,7 @@ from sqlalchemy.sql.expression import desc
 from models import (District, School, Site, SiteDetail,
                     Course, CourseDetail, User)
 from celery.utils.encoding import safe_repr, safe_str
+from celery.task.control import inspect
 import json
 import re
 import subprocess
@@ -544,9 +545,16 @@ def get_task_status(celery_id):
 @app.route('/celery/id/all')
 def get_all_ids():
     # TODO: "result" is another column, but SQLAlchemy complains of some encoding error.
-    statuses = db.session.query("id", "task_id", "status", "date_done", "traceback") \
-                       .from_statement("SELECT * "
-                           "FROM celery_taskmeta") \
-                           .all()
+    #statuses = db.session.query("id", "task_id", "status", "date_done", "traceback") \
+    #                   .from_statement("SELECT * "
+    #                       "FROM celery_taskmeta") \
+    #                       .all()
+
+    # Using Celery's inspect()
+    #i = inspect()
+    #statuses = i.stats()
+
+    # Using Celery Flower API
+    statuses = requests.get('http://localhost:5555/api/tasks').json()
 
     return jsonify(status=statuses)
