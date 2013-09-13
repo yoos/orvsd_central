@@ -17,7 +17,6 @@ import urllib2
 import celery
 import os
 from celery.utils.encoding import safe_repr, safe_str
-from celery.task.control import inspect
 import json
 import re
 import subprocess
@@ -475,12 +474,16 @@ def view_school_courses(school_id):
                 users += detail.totalusers
 
     # Get course list
-    resp = requests.get('http://localhost:5555/api/tasks').json()
-    course_details = [{'uuid': v['uuid'],
-                       'task_state': v['state'],
-                       'time_completed': datetime.datetime.fromtimestamp(int(v['timestamp'])).strftime('%Y-%m-%d %H:%M:%S'),
-                       'course_state': Soup(v['result']).find('message').get_text() if v['result'] != None else 'Unknown'}
-                      for k, v in resp.iteritems()]
+    resp = db.session.query("id", "task_id", "status", "date_done", "traceback") \
+                       .from_statement("SELECT * "
+                           "FROM celery_taskmeta") \
+                           .all()
+
+    course_details = [{'uuid': e[1],
+                       'task_state': e[2],
+                       'time_completed': e[3],
+                       'course_state': "Known course state" if e[3] != None else 'Unknown'}
+                      for e in resp]
 
     # Sort course_details by timestamp.
     course_details = sorted(course_details, key=lambda course: course['time_completed'])
@@ -911,20 +914,14 @@ def create_course_from_moodle_backup(base_path, source, file_path):
     os.remove(project_folder+"moodle_backup.xml")
 
 # Get all task IDs
-# TODO: Needs testing
 @app.route('/celery/id/all')
 def get_all_ids():
-    # TODO: "result" is another column, but SQLAlchemy complains of some encoding error.
-    #statuses = db.session.query("id", "task_id", "status", "date_done", "traceback") \
-    #                   .from_statement("SELECT * "
-    #                       "FROM celery_taskmeta") \
-    #                       .all()
-
-    # Using Celery's inspect()
-    #i = inspect()
-    #statuses = i.stats()
-
-    # Using Celery Flower API
-    statuses = requests.get('http://localhost:5555/api/tasks').json()
+    # "result" is another column, but it neeeds to be decoded using
+    # django-picklefield, which depends on django, which we don't want to
+    # import to OC, so it's not used here.
+    statuses = db.session.query("id", "task_id", "status", "date_done", "traceback") \
+                       .from_statement("SELECT * "
+                           "FROM celery_taskmeta") \
+                           .all()
 
     return jsonify(status=statuses)
