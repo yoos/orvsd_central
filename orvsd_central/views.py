@@ -295,13 +295,14 @@ def install_course():
         # append the ouput to output
         #
         # Currently this will break as our db is not setup correctly yet
+        moodle_site_id = request.form.get('site')
         for course in courses:
             #Courses are detached from session for being inactive for too long.
             course.course.name
             resp = install_course_to_site.delay(course, site)
-            new_sitecourse = SiteCourse(site_id=request.form.get('site'),
-                    course_id=course.course.id, celery_task_id=resp)
-            db.session.add(new_sitecourse)   # Add new course to database.
+            db.session.add(SiteCourse(site_id=moodle_site_id,
+                                      course_id=course.course_id,
+                                      celery_task_id=resp))
 
             output += "%s\n\n%s\n\n\n" % \
                       (course.course.name, resp)
