@@ -954,8 +954,7 @@ def get_all_ids():
     # django-picklefield, which depends on django, which we don't want to
     # import to OC, so it's not used here.
     statuses = db.session.query("id", "task_id", "status", "date_done", "traceback") \
-                       .from_statement("SELECT * "
-                           "FROM celery_taskmeta") \
-                           .all()
+                         .from_statement("SELECT * FROM celery_taskmeta") \
+                         .all()
 
     return jsonify(status=statuses)
