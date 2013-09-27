@@ -198,10 +198,12 @@ def add_course():
 INSTALL
 """
 
+
 @app.route('/get_site_by/<int:site_id>', methods=['GET'])
 def site_by_id(site_id):
     address = Site.query.filter_by(id=site_id).first().baseurl
     return jsonify(address=address)
+
 
 @app.route('/install/course', methods=['GET', 'POST'])
 def install_course():
@@ -212,14 +214,13 @@ def install_course():
         Rendered template
     """
 
-
     if request.method == 'GET':
         form = InstallCourse()
 
         # Query all moodle 2.2 courses
-        courses = db.session.query(CourseDetail).filter(
-                                   CourseDetail.moodle_version.like("2.5%")).all()
-
+        courses = db.session.query(CourseDetail) \
+                            .filter(CourseDetail.moodle_version.like("2.5%")) \
+                            .all()
 
         # Query all moodle sites
         sites = Site.query.filter_by(sitetype='moodle').all()
@@ -232,7 +233,8 @@ def install_course():
                                 .filter(and_(SiteDetail.site_id == site.id,
                                              SiteDetail.siterelease
                                                        .like('2.2%'))) \
-                                .order_by(SiteDetail.timemodified.desc()).first()
+                                .order_by(SiteDetail.timemodified.desc()) \
+                                .first()
 
             if details:
                 moodle_22_sites.append(site)
@@ -251,10 +253,8 @@ def install_course():
                                         (course.course.name, course.version)))
                 else:
                     courses_info.append((course.course_id,
-                                    "%s" %
-                                    (course.course.name)))
+                                        "%s" % (course.course.name)))
                 listed_courses.append(course.course_id)
-
 
         # Create the sites list
         for site in moodle_22_sites:
@@ -262,7 +262,8 @@ def install_course():
 
         form.course.choices = sorted(courses_info, key=lambda x: x[1])
         form.site.choices = sorted(sites_info, key=lambda x: x[1])
-        form.filter.choices = [(folder, folder) for folder in get_course_folders()]
+        form.filter.choices = [(folder, folder)
+                               for folder in get_course_folders()]
 
         return render_template('install_course.html',
                                form=form, user=current_user)
@@ -273,20 +274,23 @@ def install_course():
         selected_courses = [int(cid) for cid in request.form.getlist('course')]
         print selected_courses
 
-        site_url = Site.query.filter_by(id=request.form.get('site')).first().baseurl
+        site_url = Site.query.filter_by(id=request.form.get('site')) \
+                             .first().baseurl
 
         # The site to install the courses
-        site = "http://%s/webservice/rest/server.php?wstoken=%s&wsfunction=%s" % (
-               site_url,
-               app.config['INSTALL_COURSE_WS_TOKEN'],
-               app.config['INSTALL_COURSE_WS_FUNCTION'])
+        site = \
+            "http://%s/webservice/rest/server.php?wstoken=%s&wsfunction=%s" % (
+                site_url,
+                app.config['INSTALL_COURSE_WS_TOKEN'],
+                app.config['INSTALL_COURSE_WS_FUNCTION'])
         site = str(site.encode('utf-8'))
 
         # The CourseDetail objects needed to generate the url
         courses = []
         for cid in selected_courses:
             courses.append(CourseDetail.query.filter_by(course_id=cid)
-                                             .order_by(CourseDetail.updated.desc())
+                                             .order_by(CourseDetail
+                                                       .updated.desc())
                                              .first())
 
         # Course installation results
@@ -313,13 +317,15 @@ def install_course():
                                output=output,
                                user=current_user)
 
+
 @app.route("/1/course/install", methods=["POST"])
 def install_course_api():
     # An array of unicode strings will be passed, they need to be integers
     # for the query
     selected_courses = [int(cid) for cid in request.json.get('course_ids')]
 
-    site_url = Site.query.filter_by(id=request.json.get('moodle_site_id')).first().baseurl
+    site_url = Site.query.filter_by(id=request.json.get('moodle_site_id')) \
+                         .first().baseurl
 
     # The site to install the courses
     site = "http://%s/webservice/rest/server.php?wstoken=%s&wsfunction=%s" % (
@@ -346,6 +352,7 @@ def install_course_api():
         output += install_course_to_site.delay(course, site)
 
     return "The selected courses are now being installed!"
+
 
 @celery.task(name='tasks.install_course')
 def install_course_to_site(course, site):
@@ -374,6 +381,7 @@ def install_course_to_site(course, site):
     # data we need, instead of the whole object.
     return resp.text
 
+
 @app.route("/courses/filter", methods=["POST"])
 def get_course_list():
     dir = request.form.get('filter')
@@ -382,17 +390,21 @@ def get_course_list():
     if dir == "None":
         courses = selected_courses
     else:
-        courses = [course for course in selected_courses if course.course.source == dir]
+        courses = [course
+                   for course in selected_courses
+                   if course.course.source == dir]
 
     # This means the folder selected was not the source folder or None.
     if not courses:
-        courses = db.session.query(CourseDetail).filter(
-                                   CourseDetail.filename.like("%"+dir+"%")).all()
+        courses = db.session.query(CourseDetail) \
+                            .filter(CourseDetail.filename.like("%"+dir+"%")) \
+                            .all()
 
     courses = sorted(courses, key=lambda x: x.course.name)
     serialized_courses = []
     for course in courses:
-        serialized_courses.append(({'id' : course.course_id, 'name' : course.course.name}))
+        serialized_courses.append(({'id': course.course_id,
+                                    'name': course.course.name}))
 
     return jsonify(courses=serialized_courses)
 
@@ -548,7 +560,8 @@ def view_school_courses(school_id):
     # such in courses_dict.
     for task in tasks:
         if task[1] in courses_dict:
-            courses_dict[task[1]]['course_name'] = get_course_name_by_celery_id(task[1])
+            courses_dict[task[1]]['course_name'] = \
+                get_course_name_by_celery_id(task[1])
             courses_dict[task[1]]['celery_status'] = task[2]
             courses_dict[task[1]]['date_completed'] = task[3]
             courses_dict[task[1]]['traceback'] = task[4]
@@ -644,6 +657,7 @@ def root():
 UPDATE
 """
 
+
 @app.route("/<category>/update")
 @login_required
 def update(category):
@@ -657,10 +671,11 @@ def update(category):
         objects = obj.query.order_by(identifier).all()
         if objects:
             return render_template("update.html", objects=objects,
-                                    identifier=identifier, user=current_user,
-                                    category=category)
+                                   identifier=identifier, user=current_user,
+                                   category=category)
 
     abort(404)
+
 
 @app.route("/<category>/<id>", methods=["GET"])
 def get_object(category, id):
@@ -672,6 +687,7 @@ def get_object(category, id):
 
     abort(404)
 
+
 @app.route("/<category>/<id>/update", methods=["POST"])
 def update_object(category, id):
     obj = get_obj_by_category(category)
@@ -680,14 +696,16 @@ def update_object(category, id):
         if modified_obj:
             inputs = {}
             # Here we update our dict with new
-            [inputs.update( {key : string_to_type(request.form.get(key))})
-                        for key in modified_obj.serialize().keys()]
+            [inputs.update({key: string_to_type(request.form.get(key))})
+             for key in modified_obj.serialize().keys()]
 
-            db.session.query(obj).filter_by(id=request.form.get("id")).update(inputs)
+            db.session.query(obj).filter_by(id=request.form.get("id")) \
+                                 .update(inputs)
             db.session.commit()
             return "Object updated sucessfully!"
 
     abort(404)
+
 
 @app.route("/<category>/<id>/delete", methods=["POST"])
 def delete_object(category, id):
@@ -700,7 +718,6 @@ def delete_object(category, id):
             return "Object deleted successful!"
 
     abort(404)
-
 
 
 def string_to_type(string):
@@ -796,9 +813,10 @@ def get_obj_by_category(category):
     # Checking for case insensitive categories
     categories = {'districts': District, 'schools': School,
                   'sites': Site, 'courses': Course, 'users': User,
-                  'sitedetails':SiteDetail, 'coursedetails': CourseDetail}
+                  'sitedetails': SiteDetail, 'coursedetails': CourseDetail}
 
     return categories.get(category.lower())
+
 
 def get_obj_identifier(category):
     categories = {'districts': 'name', 'schools': 'name',
@@ -806,6 +824,7 @@ def get_obj_identifier(category):
                   'sitedetails': 'site_id', 'coursedetails': 'filename'}
 
     return categories.get(category.lower())
+
 
 def get_user():
     # A user id is sent in, to check against the session
@@ -855,6 +874,7 @@ def district_details(schools):
 API
 """
 
+
 @app.route("/1/site/<site_id>/courses")
 def get_courses_by_site(site_id):
     #SiteDetails hold the course information we are looking for
@@ -866,6 +886,7 @@ def get_courses_by_site(site_id):
 
     return jsonify(content=json.loads(site_details.courses))
 
+
 @app.route("/1/sites/<baseurl>/moodle")
 def get_moodle_sites(baseurl):
     school_id = Site.query.filter_by(baseurl=baseurl).first().school_id
@@ -873,13 +894,16 @@ def get_moodle_sites(baseurl):
     data = [{'id': site.id, 'name': site.name} for site in moodle_sites]
     return jsonify(content=data)
 
+
 @app.route('/celery/status/<celery_id>')
 def get_task_status(celery_id):
     status = db.session.query("status") \
                        .from_statement("SELECT status "
-                           "FROM celery_taskmeta WHERE id=:celery_id") \
-                           .params(celery_id=celery_id).first()
+                                       "FROM celery_taskmeta "
+                                       "WHERE id=:celery_id") \
+                       .params(celery_id=celery_id).first()
     return jsonify(status=status)
+
 
 @app.route("/1/sites/<baseurl>")
 def get_site_by_url(baseurl):
@@ -891,8 +915,8 @@ def get_site_by_url(baseurl):
                                                  .desc()) \
                                        .first()
 
-        site_info = dict(site.serialize().items() + \
-                    site_details.serialize().items())
+        site_info = dict(site.serialize().items() +
+                         site_details.serialize().items())
 
         return jsonify(content=site_info)
     return jsonify(content={'error': 'Site not found'})
@@ -902,6 +926,8 @@ def get_site_by_url(baseurl):
 1. Comment more
 2. Separate into seperate functions
 '''
+
+
 @app.route("/courses/list/update", methods=['GET', 'POST'])
 def update_courselist():
     """
@@ -928,9 +954,8 @@ def update_courselist():
             filenames.append(path)
 
         details = db.session.query(CourseDetail) \
-                        .join(CourseDetail.course) \
-                        .filter(CourseDetail.filename.in_(
-                            filenames)).all()
+                            .join(CourseDetail.course) \
+                            .filter(CourseDetail.filename.in_(filenames)).all()
 
         for detail in details:
             if detail.filename in filenames:
@@ -945,10 +970,12 @@ def update_courselist():
             flash(str(num_courses) + ' new courses added successfully!')
     return render_template('update_courses.html', user=current_user)
 
+
 # /base_path/source/path is the format of the parsed directories.
 def get_path_and_source(base_path, file_path):
     path = file_path.strip(base_path).partition('/')
     return path[0]+'/', path[2]
+
 
 def create_course_from_moodle_backup(base_path, source, file_path):
     # Needed to delete extracted xml once operation is done
@@ -959,10 +986,9 @@ def create_course_from_moodle_backup(base_path, source, file_path):
     xmlfile = file(zip.extract("moodle_backup.xml"), "r")
     xml = Soup(xmlfile.read(), "lxml")
     info = xml.moodle_backup.information
-    old_course = Course.query.filter_by(
-                    name=info.original_course_fullname.string) or \
-                 Course.query.filter_by(
-                    name=info.original_course_shortname.string)
+    old_course = \
+        Course.query.filter_by(name=info.original_course_fullname.string) or \
+        Course.query.filter_by(name=info.original_course_shortname.string)
 
     if old_course is not None:
         # Create a course since one is unable to be found with that name.
@@ -986,12 +1012,13 @@ def create_course_from_moodle_backup(base_path, source, file_path):
     version = _version_re[0] if list(_version_re) else None
 
     new_course_detail = CourseDetail(course_id=course_id,
-                                         filename=file_path,
-                                         version=version,
-                                         updated=datetime.datetime.now(),
-                                         active=True,
-                                         moodle_version=info.moodle_release.string,
-                                         moodle_course_id=info.original_course_id.string)
+                                     filename=file_path,
+                                     version=version,
+                                     updated=datetime.datetime.now(),
+                                     active=True,
+                                     moodle_version=info.moodle_release.string,
+                                     moodle_course_id=info.original_course_id
+                                                          .string)
 
     db.session.add(new_course_detail)
     db.session.commit()
@@ -999,10 +1026,12 @@ def create_course_from_moodle_backup(base_path, source, file_path):
     #Get rid of moodle_backup.xml
     os.remove(project_folder+"moodle_backup.xml")
 
+
 # Get all task IDs
 @app.route('/celery/id/all')
 def get_all_ids():
-    statuses = db.session.query("id", "task_id", "status", "date_done", "traceback", "result") \
+    statuses = db.session.query("id", "task_id", "status", "date_done",
+                                "traceback", "result") \
                          .from_statement("SELECT * FROM celery_taskmeta") \
                          .all()
 
